@@ -1,2 +1,10 @@
-# Chicken_microbiome
-Repository for Chicken Microbiome project
+# Metabolic modeling of microbial communities in the chicken ceca reveal a landscape of competition and co-operation
+Repository for R scripts used to produce data for the publication
+
+# Abstract
+With their ability to degrade dietary fibers to liberate otherwise unavailable substrates, members of the Bacteroidales exert a substantial influence on the microbiome of the lower intestine. Currently our knowledge of how this influence translates to the metabolic interactions that support community structure is limited. Here we applied constraints-based modeling to chicken cecal communities to investigate metabolic interactions in the presence and absence of Bacteroides. From metagenomic datasets previously generated from 30 chicken ceca, we constructed 233 metagenome-assembled genomes. Metabolic modeling of communities built from these genomes generated profiles of short chain fatty acids largely consistent with experimental assays and confirmed the role of B. fragilis as a metabolic hub, central to the production of metabolites consumed by other taxa. In its absence, communities undergo significant functional reconfiguration, with metabolic roles typically fulfilled by B. fragilis assumed by multiple taxa. Beyond B. fragilis, we found Escherichia coli and Lactobacillus crispatus also mediate influential metabolic roles that vary in the presence or absence of B. fragilis. Compensatory adaptations adopted by the microbiome in the absence of B. fragilis resulted in metabolic profiles previously associated with inflammatory bowel disease in humans, including energy deficiency, increased lactate production and altered amino acid metabolism. This work demonstrates the potential of chicken cecal microbiomes to investigate the complex metabolic interactions and key contributions that drive community dynamics.
+
+
+------------------------------------------------------
+Folder Genome-scale models contains the metabolic models in sbml format reconstructed using MAGs from chicken cecal microbiome.
+The medium used for gap-filling is in the folder ModelGeneration_Files
