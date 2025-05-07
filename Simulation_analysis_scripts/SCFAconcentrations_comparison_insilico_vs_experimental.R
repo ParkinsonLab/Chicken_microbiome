@@ -3,7 +3,7 @@ library(reshape2)
 library(data.table)
 library(ggplot2)
 
-conc_SCFA_corn_absorbed_2fibre <- read.table("conc_table_48h_SCFA_corn_absorbed_2fibre_diet_grower_sim20240513.txt"),
+conc_SCFA_corn_absorbed_2fibre <- read.table("conc_table_48h_SCFA_corn_absorbed_2fibre_diet_grower_sim20240513.txt",
                                              sep = '\t', header=T)
 # add names for SCFA:
 conc_SCFA_corn_absorbed_2fibre <- conc_SCFA_corn_absorbed_2fibre %>% 
@@ -109,3 +109,28 @@ for (met in c("Acetate","Propionate","Butyrate")) {
           title = element_text(size = 19))
   
 }
+
+## run wilcox.test:
+wilcox_LBvsHB_scfa <- conc_SCFA_corn_insilico_exp %>%
+  # run the Wilcoxon for each metabolite within each 'medium' (experiment and simulation)
+  group_by(medium, MetName) %>%
+  summarise(
+    pvalue = wilcox.test(Conc.mean[Bacteroides == "LB"], Conc.mean[Bacteroides == "HB"],
+                         exact = FALSE)$p.value,
+    .groups = "drop"
+  ) %>%
+  # adjust p-values across the three MetNames *within* each medium
+  group_by(medium) %>%
+  mutate(
+    qvalue = p.adjust(pvalue, method = "BH")
+  ) %>%
+  ungroup()
+
+print(wilcox_LBvsHB_scfa)
+#  medium               MetName        pvalue     qvalue
+# corn_absorbed_2fibre Acetate    0.0197     0.0296    
+# corn_absorbed_2fibre Butyrate   0.255      0.255     
+# corn_absorbed_2fibre Propionate 0.00000116 0.00000347
+# experiment           Acetate    0.00787    0.00787   
+# experiment           Butyrate   0.00361    0.00787   
+# experiment           Propionate 0.00633    0.00787 

@@ -86,10 +86,12 @@ results <- df_flux %>%
   # Select only the columns of interest
   select(MetName, statistic, p.value)
 
+results$p.adjusted <- p.adjust(results$p.value, method = "BH")
+
 # Combine Wilcoxon results with mean fluxes and calculate fold change
 final_results <- results %>%
   left_join(mean_fluxes, by = "MetName") %>%
-  filter(!is.na(p.value)) %>%
+  filter(!is.na(p.adjusted)) %>%
   mutate(
     Flux_FoldChange = Flux_mean_HB / Flux_mean_NB,
     Flux_log2FC = log2(abs(Flux_FoldChange)),
@@ -113,12 +115,12 @@ final_results <- final_results %>%
     TRUE                                                   ~ "Other"
   ))
 
-final_results$ChangeType[final_results$p.value > 0.05] <- "non-significant"
+final_results$ChangeType[final_results$p.adjusted > 0.05] <- "non-significant"
 
 # Plotting
-Vlc_plot <- ggplot(final_results, aes(x = Flux_log2FC, y = -log10(p.value), label = MetName)) +
+Vlc_plot <- ggplot(final_results, aes(x = Flux_log2FC, y = -log10(p.adjusted), label = MetName)) +
   geom_point(aes(color = ChangeType), alpha = 0.75, size = 1.2) +
-  ggrepel::geom_text_repel(aes(label = ifelse(p.value < 0.05 & abs(Flux_log2FC) > 0.65, as.character(MetName), ""),
+  ggrepel::geom_text_repel(aes(label = ifelse(p.adjusted < 0.05 & abs(Flux_log2FC) > 0.65, as.character(MetName), ""),
                                color = ChangeType), 
                            size = 6, 
                            max.overlaps = Inf) +
@@ -132,7 +134,7 @@ Vlc_plot <- ggplot(final_results, aes(x = Flux_log2FC, y = -log10(p.value), labe
                                 "Increased consumption in NB" = "orange",
                                 "non-significant" = "black")) +
   theme_bw() +
-  labs(x = "Log2(Flux FoldChange)", y = "-Log10(p-value)",
+  labs(x = "Log2(Flux FoldChange)", y = "-Log10(p-value adjusted)",
        # title = "Volcano plot of metabolic fluxes",
        color = "Change Type") +
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +

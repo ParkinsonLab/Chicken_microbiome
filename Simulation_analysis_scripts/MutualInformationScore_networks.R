@@ -14,6 +14,9 @@ samples_models_reactions_list <- readRDS("Samples_day7_allModelsReacs_list_corn2
 table_all_samples_abund <- read.table("ModelGeneration_Files/Day7_50_10_bins_info_merged_111indAssebmly_116pooled_5coassembly_5EcoliClusters_min0.005.txt",
                                       sep = '\t',header=T)
 
+sample_categories <- readxl::read_excel("~/Desktop/Study/UofT/ParkinsonLab/Modeling_chickens/Chicken_cecal_microbiome_project/ModelGeneration_Files/D7SCFA_BioSampleIDs.xlsx", sheet = "D7SCFA") %>%
+  dplyr::select("SampleName","Bacteroides")
+
 ####################################################################################################
 ################           GENERATE NETWORKS FOR ALL SAMPLES                    ####################
 ####################################################################################################
@@ -201,69 +204,83 @@ RCy3::createNetworkFromIgraph(g,"Network_33samples_MIscore")
 
 
 
-
-# Function to calculate mean, standard deviation, and Wilcoxon test for given categories
-calculate_stats <- function(data, category) {
-  values <- data$value[data$Category_combined == category]
-  mean_value <- mean(values)
-  sd_value <- sd(values)
-  
-  list(mean = mean_value, sd = sd_value, values = values)
-}
-
 # Function to perform Wilcoxon test between two sets of values
 perform_wilcox_test <- function(values1, values2) {
   test_result <- wilcox.test(values1, values2, exact = FALSE)
   return(test_result$p.value)
 }
 
-# Melt the MI matrix and merge categories
-mi_matrix_presence_melt <- melt(mi_matrix_presence)
-sample_categories <- color_samples_byHB[, 1:2] %>%
-  mutate(
-    Bacteroides = ifelse(Bacteroides == "NB", "NB", Bacteroides),
-    Ecoli = ifelse(SampleName %in% table_all_samples_abund$sample[table_all_samples_abund$tax_specie == "Escherichia_coli"], 
-                   "Ecoli", "noEcoli"),
-    BacteroidesEcoli = paste0(Bacteroides, "_", Ecoli)
-  )
+# Melt the MI matrix
+mi_df <- melt(mi_matrix_presence, varnames = c("Var1","Var2"), value.name = "value")
 
-# Merge categories for both Var1 and Var2
-mi_matrix_with_categories <- mi_matrix_presence_melt %>%
+# Build sample‐level categories
+sample_categories <- sample_categories %>%
+  mutate(
+    Bacteroides = ifelse(Bacteroides == "NB", "NB", "HB"),
+    Ecoli       = ifelse(SampleName %in% table_all_samples_abund$sample[
+        table_all_samples_abund$tax_specie == "Escherichia_coli"
+      ], "Ecoli", "noEcoli"
+    )
+  ) %>%
+  select(SampleName, Bacteroides, Ecoli)
+
+# Join in both labels
+mi_labeled <- mi_df %>%
   left_join(sample_categories, by = c("Var1" = "SampleName")) %>%
-  rename(Category1 = BacteroidesEcoli) %>%
+  rename(Bact1 = Bacteroides, Ecoli1 = Ecoli) %>%
   left_join(sample_categories, by = c("Var2" = "SampleName")) %>%
-  rename(Category2 = BacteroidesEcoli) %>%
+  rename(Bact2 = Bacteroides, Ecoli2 = Ecoli)
+
+# Define the categories of interest:
+mi_flagged <- mi_labeled %>%
   mutate(
-    Category_combined = ifelse(Category1 < Category2, 
-                               paste(Category1, Category2, sep = "_"), 
-                               paste(Category2, Category1, sep = "_"))
+    # broad groups:
+    is_HB_HB = (Bact1 == "HB" & Bact2 == "HB"),
+    is_NB_NB = (Bact1 == "NB" & Bact2 == "NB"),
+    # E. coli subgroups:
+    is_HB_Ecoli_HB_Ecoli       = is_HB_HB & Ecoli1 == "Ecoli"   & Ecoli2 == "Ecoli",
+    is_HB_noEcoli_HB_noEcoli   = is_HB_HB & Ecoli1 == "noEcoli" & Ecoli2 == "noEcoli",
+    is_NB_Ecoli_NB_Ecoli       = is_NB_NB & Ecoli1 == "Ecoli"   & Ecoli2 == "Ecoli",
+    is_NB_noEcoli_NB_noEcoli   = is_NB_NB & Ecoli1 == "noEcoli" & Ecoli2 == "noEcoli"
   )
 
-# Define the categories of interest
-categories <- c("HB_HB", "NB_NB", "HB_Ecoli_HB_Ecoli", "NB_Ecoli_NB_Ecoli", 
-                "HB_noEcoli_HB_noEcoli", "NB_noEcoli_NB_noEcoli")
+# calculate mean ± SD for each category (flag)
+stats_list <- list(
+  HB_HB        = filter(mi_flagged, is_HB_HB)$value,
+  NB_NB        = filter(mi_flagged, is_NB_NB)$value,
+  HB_Ecoli     = filter(mi_flagged, is_HB_Ecoli_HB_Ecoli)$value,
+  HB_noEcoli   = filter(mi_flagged, is_HB_noEcoli_HB_noEcoli)$value,
+  NB_Ecoli     = filter(mi_flagged, is_NB_Ecoli_NB_Ecoli)$value,
+  NB_noEcoli   = filter(mi_flagged, is_NB_noEcoli_NB_noEcoli)$value
+) %>%
+  lapply(function(x) list(mean = mean(x), sd = sd(x), values = x))
 
-# Calculate statistics for each category
-stats_list <- lapply(categories, calculate_stats, data = mi_matrix_with_categories)
-
-# Print means and standard deviations
-for (i in seq_along(categories)) {
-  cat("\nCategory:", categories[i])
-  cat("\nMean:", stats_list[[i]]$mean)
-  cat("\nSD:", stats_list[[i]]$sd)
-}
 
 # Perform Wilcoxon tests between categories
 wilcox_results <- list(
-  HB_NB = perform_wilcox_test(stats_list[[1]]$values, stats_list[[2]]$values),
-  HB_Ecoli_vs_NB_Ecoli = perform_wilcox_test(stats_list[[3]]$values, stats_list[[4]]$values),
-  HB_noEcoli_vs_NB_noEcoli = perform_wilcox_test(stats_list[[5]]$values, stats_list[[6]]$values),
-  HB_Ecoli_vs_NB_noEcoli = perform_wilcox_test(stats_list[[3]]$values, stats_list[[6]]$values)
+  HB_NB = perform_wilcox_test(stats_list$HB_HB$values, stats_list$NB_NB$values),
+  HB_Ecoli_vs_NB_Ecoli = perform_wilcox_test(stats_list$HB_Ecoli$values, stats_list$NB_Ecoli$values),
+  HB_noEcoli_vs_NB_noEcoli = perform_wilcox_test(stats_list$HB_noEcoli$values, stats_list$NB_noEcoli$values),
+  HB_Ecoli_vs_NB_noEcoli = perform_wilcox_test(stats_list$HB_Ecoli$values, stats_list$NB_noEcoli$values)
 )
 
-# Print Wilcoxon test results
-print(wilcox_results)
+# Collect raw p-values into a data.frame
+wilcox_df <- data.frame(
+  comparison = names(wilcox_results),
+  pvalue     = unlist(wilcox_results),
+  stringsAsFactors = FALSE
+)
 
+# Apply BH correction across all four tests
+wilcox_df$p.adjusted <- p.adjust(wilcox_df$pvalue, method = "BH")
+
+# Print a summary
+print(wilcox_df)
+# comparison                                        pvalue       p.adjusted
+# HB_NB                                       HB_NB 1.306710e-01 1.742280e-01
+# HB_Ecoli_vs_NB_Ecoli         HB_Ecoli_vs_NB_Ecoli 2.212948e-02 4.425896e-02
+# HB_noEcoli_vs_NB_noEcoli HB_noEcoli_vs_NB_noEcoli 1.000000e+00 1.000000e+00
+# HB_Ecoli_vs_NB_noEcoli     HB_Ecoli_vs_NB_noEcoli 1.014021e-05 4.056085e-05
 
 
 

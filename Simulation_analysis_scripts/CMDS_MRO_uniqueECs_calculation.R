@@ -58,10 +58,12 @@ for (sample in sort(unique(table_all_samples_abund$sample))) {
 # assuming maximum difference as the baseline.
 # Use the Log Adjustment if you are more interested in scaling the impact of additional species
 # in larger communities, reflecting diminishing returns in potential interaction complexity.
-cmds_coef_calculation <- function(ec_data, adjust_for_size= c("max","log")) {
+cmds_coef_calculation <- function(ec_data, 
+                                  adjust_for_size= c("max","log"),
+                                  method = "jaccard") {
   # Calculate Bray-Curtis dissimilarity
   # Assuming ec_data is presence/absence data frame where columns are species and rows are EC numbers
-  dissimilarity <- vegan::vegdist(t(ec_data), method = "bray")
+  dissimilarity <- vegan::vegdist(t(ec_data), method = method)
   dissimilarity_matrix <- as.matrix(dissimilarity)
   
   # Calculate raw CMDS
@@ -126,9 +128,10 @@ for (sample in names(ECs_samples_models)) {
 sample_cmds_scores <- as.data.frame(sample_cmds_scores)
 colnames(sample_cmds_scores)[1] <- "SampleName"
 sample_cmds_scores <- merge(sample_cmds_scores, sample_categories)
+sample_cmds_scores$cmds_log <- as.numeric(sample_cmds_scores$cmds_log)
 
 wilcox.test(sample_cmds_scores$cmds_log[sample_cmds_scores$Category == "NB"],
-            sample_cmds_scores$cmds_log[sample_cmds_scores$Category == "HB"])  # p-value = 0.1776 
+            sample_cmds_scores$cmds_log[sample_cmds_scores$Category == "HB"])  # p-value = 0.2436
 
 # Calculate summary statistics
 summary_stats <- sample_cmds_scores %>%
@@ -153,7 +156,7 @@ ggplot(summary_stats, aes(x=Category, y=Mean)) +
         axis.title = element_text(size=22),
         axis.text.y = element_text(size=20))
 
-write.table(sample_cmds_scores, "CommunityMetDiversityScores_log_adjusted_33samples_corn2.txt",
+write.table(sample_cmds_scores, "CommunityMetDiversityScores_log_adjusted__33samples_corn2.txt",
             sep ='\t',quote=F)
 
 #################################################################################
