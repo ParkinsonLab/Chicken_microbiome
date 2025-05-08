@@ -1,4 +1,4 @@
-# Metabolic modeling of microbial communities in the chicken ceca reveal a landscape of competition and co-operation
+# Metabolic modeling of microbial communities in the chicken ceca reveals a landscape of competition and co-operation
 Repository for R scripts used to produce data for the publication
 
 # Abstract
