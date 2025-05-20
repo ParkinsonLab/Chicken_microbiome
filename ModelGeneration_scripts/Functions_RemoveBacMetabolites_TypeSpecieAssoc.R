@@ -22,51 +22,6 @@ CreateTypeSpecieAssoc_table <- function(sim_object) {
   return(type_specie_table)
 }
 
-# RemoveBacMetabolites <- function(sim_object, perc_to_remove, type_specie_table) {
-#   arena2 <- BacArena::getArena(sim_object,1)
-#   # select perc_to_remove % of the grid randomly that will be removed in the next iteration and transferred to cecum
-#   rm_orgdat <- arena2@orgdat[sample(nrow(arena2@orgdat), 
-#                                     round(perc_to_remove*nrow(arena2@orgdat))), c("x", "y", "type") ]
-#   
-#   # connect the numeric "type" in orgdat with the name of corresponding specie:
-#   # problem here: when some species get removed completely from the grid. solution: create and type_specie_table after 1st iteration
-#   type_specie <- subset(type_specie_table, type_specie_table$Type %in% unique(arena2@orgdat$type))
-#   # another problem: when species not present in comp initially get transferred from other compartment, so they aren't in type_specie_table
-#   # solution: add this bacteria to type_specie table separately:
-#   new_bactype_arena2 <- setdiff(unique(arena2@orgdat$type), type_specie_table$Type)
-#   if (length(new_bactype_arena2) > 0) {
-#     for (bactype in new_bactype_arena2) {
-#       type_specie_new <- data.frame(cbind(arena2@specs[[bactype]]@model@mod_desc, bactype))
-#       colnames(type_specie_new) <- c("Name", "Type")
-#       type_specie <- rbind(type_specie, type_specie_new)
-#     }
-#   }
-#   
-#   # and create a table with numbers of each specie individuals being removed / transferred to compartment N+1
-#   species_numbers_rm <- data.frame(table(rm_orgdat$type)) # Var 1 = type, Freq = how many individuals of this type
-#   colnames(species_numbers_rm) <- c("Type", "Number")
-#   species_rm <- dplyr::inner_join(species_numbers_rm, type_specie , by = "Type") # this table will be used to add to compartment N+1
-#   
-#   # get substance matrix (concentrations of each metabolite in each occupied grid cell)
-#   sublb <- BacArena::getSublb(arena2)
-#   sublb <- as.data.frame(sublb)
-#   # substances in grid cells to be deleted in the next iteration from compartment N and transferred to compartment N+1:
-#   # IMPORTANT: do this BEFORE deleting bacteria (from orgdat), as the substances get deleted as well!
-#   sublb_rm <- plyr::match_df(sublb, rm_orgdat) 
-#   names(sublb_rm) <- gsub("\\.e\\.", "(e)", names(sublb_rm))
-#   
-#   # update arena2 (remove those pre-selected random perc_to_remove%)
-#   for (row in 1:nrow(rm_orgdat)) {
-#     # arena2@removeM[rm_orgdat[row, 2], rm_orgdat[row, 1]] <- 1
-#     arena2@orgdat <- arena2@orgdat[-which((arena2@orgdat$x == rm_orgdat[row, 1]) &
-#                                             (arena2@orgdat$y == rm_orgdat[row, 2])), ]
-#   }
-#   # for some reason after manipulations arena2@models slot becomes empty and the following sim_object@models as well
-#   arena2@models <- sim_object@models
-#   
-#   return(list("arena2" = arena2, "rm_orgdat" = rm_orgdat, "sublb_rm" = sublb_rm, "species_rm" = species_rm))
-# }
-
 RemoveBacMetabolites <- function(sim_object, arena2_object, perc_to_remove_bac, 
                                  perc_to_remove_mets = 0, type_specie_table) {
   # if perc_to_remove_mets not specified (i.e. in older scripts) set it equal to perc_to_remove_bac
@@ -97,7 +52,7 @@ RemoveBacMetabolites <- function(sim_object, arena2_object, perc_to_remove_bac,
     }
   }
   
-  # and create a table with numbers of each specie individuals being removed / transferred to compartment N+1
+  # and create a table with number of each species individuals being removed / transferred to compartment N+1
   species_numbers_rm <- data.frame(table(rm_orgdat$type)) # Var 1 = type, Freq = how many individuals of this type
   colnames(species_numbers_rm) <- c("Type", "Number")
   species_rm <- dplyr::inner_join(species_numbers_rm, type_specie , by = "Type") # this table will be used to add to compartment N+1
@@ -147,8 +102,8 @@ RemoveBacMetabolites <- function(sim_object, arena2_object, perc_to_remove_bac,
   }
   
   
-  # update all metabolites concentrations in emptied cells: set them to zero;
-  # then re-mix the environment (stirEnv) to evenly distribute mets
+  # update all metabolite concentrations in emptied cells: set them to zero;
+  # then re-mix the environment (stirEnv) to distribute mets evenly
   sublb_remaining <- dplyr::setdiff(sublb, sublb_rm)
   sublb_rm_zeros <- plyr::match_df(sublb, sublb_rm)
   sublb_rm_zeros[, 3:ncol(sublb_rm_zeros)] <- 0
